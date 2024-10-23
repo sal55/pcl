@@ -11,6 +11,8 @@ I decided that a text format, while appearing to be simpler to get going with, w
 
 There are some use-cases for textual IL (for example when the host runs on one machine and the PCL is consumed on other). But that can be added on as another front-end language.
 
+PCL is not a product, but previous ones were 64-bit oriented and most integer types were auto-widened to 64 bits. This new version has ops of any width (C mainly works with 32 bits for example), and there is never any automatic widening.
+
 ### Availability
 
 This is an experimental project for my own compilers and for a limited range of targets. I'm not really looking at making a tool for general use, for several reasons:
@@ -108,9 +110,37 @@ These are listed and documented here.
 
 ### Adding PCL to the C Compiler
 
+C needs to to independent compilation which would limit what this PCL backend could provide. I need to make a new, more streamlined C compiler which would work only on a single module. This means it can work like a whole-program compiler and can directly generate EXE or DLL files, or run or intepreter the programs. (It also makes compilation twice as fast compared with going through intermediate ASM.)
+
+Multi-module C programs can still be built, but via a driver program (a 200-line script), which invokes PCL per-module and with an ASM target (it then invokes my AA assemble-linker on the results.
+
+Some things were challenging. For example the `argn, argv` arguments of `main`, which don't exist under Windows and needs to be emulated. But does happen before PCL or after? I moved that mechanism to after PCL; it takes away that headache from the host.
+
+Another thing was supporting var-args, which in my main implementation, assumes the stack grows downwards. In the PCL interpreter however, it grows upwards! This now uses conditional code in stdargs.h, but it means the compiler
+needs to know early on whether output will be interpret. It makes it harder to do preprprocessing separately.
+
 ### Interpreting PCL
 
-### Run from Source
+This wasn't considered seriously first. Why interpret? PCL as it is is quite unsuitable for interpreting, there too many combinations of operands and types, which need to be sorted at runtime. However I decided to try it anyway. And yes, it was very slow.
+
+But there are some benefits in having a reference implementation that is independent of platform. Debugging becomes easier. Various kinds of survey can be done. If the interpreter at least was ported to another language, that provides one way of getting my M code to run across machines.
+
+There are difficulties however:
+* Running interpreted code that calls into external native code requires solving the LIBFFI problem. That has an ugly, awkward solution in that C library. In my language I can solve it trivially, but then porting the code to another language is harder.
+* It is not possible to deal with callback functions, where an external function is passed a pointer to a function in your program. Native code can't call a pointer to bytecode!
+
+It does allow very quick development cycles, but that are quick anyway. Running sqlite3.c from source (some 250Kloc) takes only 0.15 seconds to generate PCL code, but generating runnable x64 code only takes 0.3 seconds anyway.
+
+Anyway, it's cool.
+
+### Run from Source and JIT
+
+This possible either via the interpreter (generate PCL then run that), or by further turning the PCL into executable code. Both are very fast compared with most products.
+
+For example, running either of my compilers from source only adds 0.1 seconds to the task. The interpreter can start fractionally quicker, but runtimes are likely to be much longer.
+
+So JIT is the usually sense isn't necessary, as whole-program translation to native code is more or less instant anyway (depending on the scale of the program of course).
+
 
 ### Targetting Linux x64
 
