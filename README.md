@@ -44,7 +44,10 @@ C Demo ───────>──┤                ├────> (Linux-x6
                                   ├────> (32-bit targets)
                                   └────> (Linear C)
 Key:
+ PCL          This displays generated PCL in source form for diagnostics. The syntax is not suitable for reading to re-generate PCL
+ RUNP         This will executable the program by directly interpreting the PCL code, independently of any target
  EXE/DLL/OBJ  Windows' PE-format binaries
+ RUN          Runs the generated native code in-memory without writing any binaries
  MX           My private, portable (and simple) binary format, require a small stub program to launch
  ASM          x64 assembly in the syntax used by my AA assembler/linker
  NASM         x64 assembly in NASM syntax (NASM runs under Linux too)
@@ -88,6 +91,20 @@ That uses the PCL library which as mentioned is either compiled into the front-e
 ### PCL Types and Opcodes
 
 These are listed and documented here.
+
+### Adding PCL to the C Compiler
+
+### Interpreting PCL
+
+### Run from Source
+
+### Targetting Linux x64
+
+### Generating 'Linear  C'
+
+### The PCL Runtime
+
+### Backend Optimisations
 
 
 
