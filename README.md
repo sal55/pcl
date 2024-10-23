@@ -38,9 +38,9 @@ This shows how PCL is intended to work:
 ````
 Front-ends             IR/IL             Back-ends             
 
-M7 Compiler ──>──┐                ┌────> PCL  - Text Dump
-C Compiler  ──>──┼────> PCL ──>───┼────> RUNP - Interpret PCL
-Q Demo ───────>──┤                ├────> Windows-x64 ────> EXE/DLL/OBJ/MX/ASM/NASM/RUN
+M7 Compiler ──>──┐                ┌────> PCL  ────────────> Text Dump
+C Compiler  ──>──┼────> PCL ──>───┼────> RUNP ────────────> Interpret PCL
+Q Demo ───────>──┤                ├────> Windows-x64 ─────> EXE/DLL/OBJ/MX/ASM/NASM/RUN
 C Demo ───────>──┤                ├────> (Linux-x64 ──────> NASM/MX/RUN)
 (PCL text) ───>──┤                ├────> (Linux-ARM64 ────> AT&T-ASM)
 (Other) ──────>──┘                ├────> (Z80 8-bit ──────> ZASM)
@@ -110,47 +110,74 @@ These are listed and documented here.
 
 ### Adding PCL to the C Compiler
 
-C needs to to independent compilation which would limit what this PCL backend could provide. I need to make a new, more streamlined C compiler which would work only on a single module. This means it can work like a whole-program compiler and can directly generate EXE or DLL files, or run or intepreter the programs. (It also makes compilation twice as fast compared with going through intermediate ASM.)
+C needs to do independent compilation which would limit what this PCL backend could provide. I decided to make a new, more streamlined C compiler which would work only on a single module. This means it can work like a whole-program compiler and can directly generate EXE or DLL files, or run or intepret the programs. (It also makes compilation twice as fast compared with going through intermediate ASM.)
 
-Multi-module C programs can still be built, but via a driver program (a 200-line script), which invokes PCL per-module and with an ASM target (it then invokes my AA assemble-linker on the results.
+Multi-module C programs can still be built, but via a driver program (a 200-line script), which invokes PCL per-module and with an ASM target (it then invokes my AA assemble-linker on the results).
 
 Some things were challenging. For example the `argn, argv` arguments of `main`, which don't exist under Windows and needs to be emulated. But does happen before PCL or after? I moved that mechanism to after PCL; it takes away that headache from the host.
 
-Another thing was supporting var-args, which in my main implementation, assumes the stack grows downwards. In the PCL interpreter however, it grows upwards! This now uses conditional code in stdargs.h, but it means the compiler
-needs to know early on whether output will be interpret. It makes it harder to do preprprocessing separately.
+Another thing was supporting var-args, which in my main implementation, assumes the stack grows downwards. In the PCL interpreter however, it grows upwards!
 
 ### Interpreting PCL
 
-This wasn't considered seriously first. Why interpret? PCL as it is is quite unsuitable for interpreting, there too many combinations of operands and types, which need to be sorted at runtime. However I decided to try it anyway. And yes, it was very slow.
+This wasn't considered seriously first. Why interpret? PCL as it is is quite unsuitable for interpretation: there too many combinations of operands and types, which need to be sorted at runtime. However I decided to try it anyway. And yes, it was very slow.
 
 But there are some benefits in having a reference implementation that is independent of platform. Debugging becomes easier. Various kinds of survey can be done. If the interpreter at least was ported to another language, that provides one way of getting my M code to run across machines.
 
 There are difficulties however:
-* Running interpreted code that calls into external native code requires solving the LIBFFI problem. That has an ugly, awkward solution in that C library. In my language I can solve it trivially, but then porting the code to another language is harder.
+* Running interpreted code that calls into external native code requires solving the 'LIBFFI' problem. That has an ugly, awkward solution in that C library. In my language I can solve it trivially, but then porting the code to another language is harder.
 * It is not possible to deal with callback functions, where an external function is passed a pointer to a function in your program. Native code can't call a pointer to bytecode!
 
-It does allow very quick development cycles, but that are quick anyway. Running sqlite3.c from source (some 250Kloc) takes only 0.15 seconds to generate PCL code, but generating runnable x64 code only takes 0.3 seconds anyway.
+It does allow very quick development cycles, but that are quick anyway; see below.
 
 Anyway, it's cool.
 
 ### Run from Source and JIT
 
-This possible either via the interpreter (generate PCL then run that), or by further turning the PCL into executable code. Both are very fast compared with most products.
+This is possible in two ways:
 
-For example, running either of my compilers from source only adds 0.1 seconds to the task. The interpreter can start fractionally quicker, but runtimes are likely to be much longer.
+* Compile to PCL then interpret that (but it is slow, and with the limitations mentioned)
+* Compile to PCL then translate to native code then the resulting code in-memory
 
-So JIT is the usually sense isn't necessary, as whole-program translation to native code is more or less instant anyway (depending on the scale of the program of course).
+The latter takes a tiny bit longer, but with typical programs, that is tens of milliseconds. (Eg. sqlite3.c, some 250Kloc, takes 150ms to turn into PCL, but still only 300ms to turn into x64 code. Most projects of mine are smaller.)
 
+So JIT is the usual sense isn't necessary, as whole-program translation from source to native code is more or less instant anyway (depending on the scale of the program of course).
 
-### Targetting Linux x64
+### Targeting Linux x64 and MX Files
+
+This is probably the next challenge. On the face of it it sounds a minor change to the x64 code generator: a different ABI, but a complicated one. (There may also be problems with passing structs by value: the SYS V ABI may need to now the their internal layout, but PCL flattens them into an untyped sequence of bytes.)
+
+Because I do not support Linux binary file formats, I need to generate NASM-format ASM, and use NASM on Linux to produce object files, then use other Linux tools to create an executable.
+
+There are other options, such as the MX file format. That was a binary format I developed for other reasons, but no longer need. However is a simple binary executable format, and it is portable. I could generate that instead (after fixing the code generator to produce SYS V code). However that needs stub program to load and fix up MX files before calling their entry point. That program is a 900-line C programs, which just needs tweaking to with `dlopen/dlsym`.
+
+Yet another might be to use the interpreter, but that has some issues as mentioned.
 
 ### Generating 'Linear  C'
 
+This is unlikely to be done, but I have experimented with it and it would probably work. The trouble is that the C generated is terrible with lots of redundant assignments, so that it *needs* an optimising compiler to clean up the mess.
+
+It won't be done because one of the reasons for creating PCL was to avoid having to use intermediate C. (A transpiler of sorts from my M language to still exists, but has fallen into disuse.)
+
+
 ### The PCL Runtime
+
+PCL, when turned into native code, mostly generates inline code. Exceptions include calls to external libraries; for example `a ** b` when `a, b` are floats will generate a call to C's `pow` function.
+
+However some code doesn't use an external library, but is too sprawling to generate inline. For example, `a ** b` when `a, b` are integers, uses a routine called `m$power_i64`. Others can include supporting bitfield operations. But where is that code located? Who supplies it, the front-end compiler?
+
+A much older project used textual IL, and such code was generated by some means then appended to the IL produced by the host. Here there is no textual form. I don't want to have a dependency such as another DLL which then have to accompany applicatins.
+
+I don't have a solution yet. For the M7 compiler, there is a workaround: `m$power_i64` is part of the M7 compiler's runtime. Programs compiled with M7 will use the same system library, so the PCL code for `m$power_i64` exists. The PCL->native backend can call into the host to ask if it to supply a reference to that code which is going to be part of the application anyway.
+
+In the case of the C compiler, there is no built-in `pow` operator for integers, so it doesn't arise. 
+
+But the problem needs to be solved for when there is more demand for runtime routines.
+
 
 ### Backend Optimisations
 
-
+### Inline Assembly
 
 
 
