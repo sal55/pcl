@@ -99,7 +99,7 @@ The library uses global state. There is no context handle returned by `pcl_start
 
 ### PCL Types and Opcodes
 
-These are listed and documented here.
+These are listed and documented in [pcldocs.md](pcldocs.md)
 
 ### Adding PCL to the C Compiler
 
@@ -343,15 +343,5 @@ EXE:             0 ms   0.0 %
 Total:         930 ms 100.0 %
 ````
 This example is for a 740Kloc benchmark, that generates 2.2M PCL instructions. (OS file cacheing usually means load time is zero. I don't know if finising writing a file, which here is 7.7MB, continues after the compiler terminates.)
-
-### Missing PCL Instructions
-
-* Nothing has been done with 'vector' types, mainly because they don't feature in my source languages.
-* No overflow detection in generated code
-* No way to capture the overflow or carry flag for arithmetic ops (for example `cadd` could return two values: the normal result, and any carry).
-
-There are no special features for things like closures, generators, continuations (I don't know what half of them are). If they were to come up, and they couldn't be expressed in existing PCL code, then I would add something.
-
-There are however `setjmp longjump` ops for C, as well as `assem` for my inline assembly, and special `tcproc` functions for threaded-code (ie. naked functions).
 
 
