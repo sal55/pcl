@@ -11,7 +11,7 @@ I decided that a text format, while appearing to be simpler to get going with, w
 
 There are some use-cases for textual IL (for example when the host runs on one machine and the PCL is consumed on other). But that can be added on as another front-end language.
 
-PCL is not a product, but previous ones were 64-bit oriented and most integer types were auto-widened to 64 bits. This new version has ops of any width (C mainly works with 32 bits for example), and there is never any automatic widening.
+PCL is not a new product, but previous versions were closely integrated into a compiler, and tended to be 64-bit oriented with most narrow integer values promototed to. This new version is more general and exactly the same library can be used for different languages and compilers.
 
 ### Availability
 
@@ -19,21 +19,19 @@ This is an experimental project for my own compilers and for a limited range of 
 
 * It's not mature enough
 * It doesn't support enough targets (eg. only Win64 right now)
-* The native code targets don't generate optimised code
-* Everything is undoubtably very buggy
+* The native code backends don't generate optimised code
+* Everything is buggy
 * While the PCL design is reasonably stable, the API is not yet fixed
-* There are a number of problems still to sort out, which currently only have workarounds, some of which are detailed below
-* It is also aimed at whole-program front-ends (it can be used for independently compiled modules, but then the outputs are limited (to ASM/OBJ)
+* There are a number of problems still to sort out, which currently only have workarounds
+* It is also aimed at whole-program front-ends (it can be used for independently compiled modules, but then the outputs are limited to ASM/OBJ)
 
 But mainly I'm not interested in that and don't want to get involved in support.
 
-For me it was an interesting intellectual exercise, plus there was some satisfaction in producing a self-contained 100-200KB library (depends on configuration) that basically does what LLVM does but of a size and complexity several magnitudes smaller.
+It was just an interesting challenge, plus there was some satisfaction in producing a tiny self-contained library that basically does what LLVM does but of a size and complexity several magnitudes smaller, and up to a couple of magnitudes faster.
 
 It is showing what is possible even working at this scale.
 
 ### Structure
-
-This shows how PCL is intended to work:
 
 ````
 Front-ends             IR/IL             Back-ends             
@@ -47,15 +45,14 @@ C Demo ───────>──┤                ├────> (Linux-x6
                                   ├────> (32-bit targets)
                                   └────> (Linear C)
 Key:
- PCL          This displays generated PCL in source form for diagnostics. The syntax is not suitable for machine reading to re-generate PCL
- RUNP         This will executable the program by directly interpreting the PCL code, independently of any target
+ PCL Text     This displays generated PCL in source form for diagnostics. The syntax is not suitable for machine reading to re-generate PCL
+ RUNP         This immediately interpret the PCL code. It is platform-independent
  EXE/DLL/OBJ  Windows' PE-format binaries
- RUN          Runs the generated native code in-memory without writing any binaries
- MX           My private, portable (and simple) binary format, requiring a small stub program to launch
+ RUN          Runs the generated native code in-memory
+ MX           My private, portable binary format, requiring a small stub program to launch
  ASM          x64 assembly in the syntax used by my AA assembler/linker
  NASM         x64 assembly in NASM syntax (NASM runs under Linux too)
  ZASM         My Z80 assembly syntax
- Linear C     Crude, unstructured C source code
 ````
 
 Elements in parentheses are either experimental or don't exist. However they helped keep the design flexible.
@@ -97,6 +94,13 @@ For use from Q and C languages, suitable interface files are provided (`pcl.q` a
 
 The C demo (`cdemo.c`) needs a binary, either `pcl.obj` or `pcl.dll`, but because these are troublesome to distribute, an ASM version `pcl.asm` is provided, in NASM syntax, which can be assembled locally.
 
+### The PCL API
+
+This is not docoumented yet. The API consists of about 50 functions and a bunch of enumerations; see `pcl.q` or `pcl.h` for a summary. (The M7/C compiler projects don't need any such interface; written in my language, they just do `import pcl` and all exported entities of the library become available, including extras to deal with inline assembly for example.)
+
+The true interface also exports some global variables; these are not needed for the demos, so are not part of those interface files. The API needs to be tidied up so that it only uses functions to control the process.
+
+The library uses global state. There is no context handle returned by `pcl_start` for example. Only one program at a time can be processed, and as written, at most one program can be translated. For use via a DLL, it needs to be capable of translating successive programs, but this is not ready.
 
 ### Generating PCL Code
 
@@ -153,21 +157,22 @@ There are other options, such as the MX file format. That was a binary format I 
 
 ### Generating 'Linear  C'
 
-This is unlikely to be done, but I have experimented with it and it would probably work.That is, each IL instruction translates to a C statement, which the VM stack represented by a set of C locals.
+This is something that was once considered and was experimented with. Each IL instruction translates to a C statement, with the VM stack represented by a set of C local variables.
 
 The trouble is that the C generated is terrible with lots of redundant assignments, so that it *needs* an optimising compiler to clean up the mess.
 
-It probably won't be done because one of the reasons for creating PCL was to avoid having to use intermediate C.
+It is unlikely to be done as one of the reasons for creating PCL was to avoid having to use intermediate C. Probably it is easier to generate structured C from an AST than linear C from an IL.
 
 ### The PCL Runtime
 
-PCL, when turned into native code, mostly generates inline code. Exceptions include calls to external libraries; for example `a ** b` when `a, b` are floats will generate a call to C's `pow` function. But when `a, b` are integers, then inline code is too sprawling; it needs to use a function.
+The job of a PCL backend is to turn each instruction into inline native code. But sometimes the task is too complex to do inline.
 
-Where doesn't that come from however? It's the responsibility of the PCL backend, but there is no provision for such support functions. I don't want to add a discrete library which then becomes a dependency (eg. a DLL that accompanies to the generate program binary).
+Some ops result in a call to an external library (eg. to do `power r64`), but sometimes a local function is needed (eg. for `power i64`).
 
-I currently use a workaround. The routine for integer `**` is part of M7's runtime and is part of the library when apps are compiled, so it will exist as PCL. The native backend reaches back across PCL and asks the host for a reference. For the C compiler, so an operator doesn't exist.
+I don't have a general solution for this right now. A workaround used in the M7 compiler is for the backend to request the front end for a reference to a suitable function (eg. `m$power_i64` is part of the M7 compiler's standard library).
 
-I don't have a solution yet, but when will be needed for other kinds of support, for example for 128-bit arithmetic. While I'd rule out have a textual input format for PCL, I may rethink that. A crude syntax for representing PCL (not as an output for a front-end, may suffice to describe the small number of routines that may be needed.
+Synthesising such code through function calls is not practical (`m$power_i64` is 50 PCL instructions for example). So I might introduce a limited form of textual PCL; those 50 lines are represented by a table of 50 strings, or possibly it will embed a small text file, and a mini parser turns that into internal PCL using the same API the front-end uses.
+
 
 ### Backend Optimisations
 
@@ -180,9 +185,7 @@ Neither really make applications much faster. Using locals in register can somet
 
 PCL's x64 backend doesn't yet have even the above enhancements. So neither M7 nor the new C compiler have them (so code generated by them is a little bit larger too).
 
-They will be added in due course. Generated PCL code can be tided up too. Some is up to the host compiler. There are some reductions that can be done by the PCL API functions (for example combining sequences involving `addpx iloadx istorex` operations).
-
-At the moment however all that is low priority.
+They will be added in due course. Generated PCL code can be tided up too. Some is up to the host compiler. There are some reductions that can be done by the PCL API functions (for example combining sequences involving address calculations). But at the moment all that is low priority. I can live without a 10% improvement in speed or size!
 
 ### Inline Assembly
 
@@ -190,17 +193,17 @@ This is not directly supported by PCL. With a version involving discrete IL file
 
 Yet the M7 compiler supports inline assembly. It generates `assem` PCL opcodes, which have a opaque reference to an AST structure in the host which contains more details.
 
-When an `assem` instruction needs to be translated to x64 code, it calls back into the host to deal with it. So there is an untidy leakage of symbols between the host on one side of PCL, and the backend on the other. But it works. The native backend will anyway contain the several hundred reserved words (instructions, registers etc) which are needed to be able to parse assembly.
+When an `assem` instruction needs to be translated to x64 code, it calls back into the host to deal with it. So there is an untidy leakage of symbols between the host on one side of PCL, and the backend on the other. But it works. The native backend will anyway contain the several hundred reserved words (instructions, registers etc) which the front end needs to be able to parse assembly.
 
-(The PCL interpreter doesn't suport `assem`, so that is another limitation.)
+(The PCL interpreter doesn't suport `assem`, so that is another limitation. But neither would a C transpiler.)
 
 ### PCL as a DLL
 
-This is needed for the Q demo below, but DLL format for this library needs a lot more work. For a start, the library currently does a one-off translation then terminates. A host will expect to call a DLL for multiple programs. Also, the API needs to be refined further. Some variables are exported from the library; I want to use only functions.
+This is needed for the Q demo below, but the DLL format for this library needs a lot more work. For a start, the library currently does a one-off translation then terminates. A host will expect to call a DLL for multiple programs. Also, the API needs to be refined further. Some variables are exported from the library; I want to use only functions.
 
 ### Q Demo
 
-I wanted to try out using PCL from a dynamic language, and via a DLL. The program below synthesises a hello-world program, then selects one of several output options. As shown, it will interpret the resulting program.
+I wanted to try out using PCL from a dynamic language, and via a DLL. The program below synthesises a hello-world program, then selects one of several output options.
 ````
 module pcl
 
@@ -229,7 +232,7 @@ proc main =
     pcl_end()
 ````
 At this point, the generated PCL program exists as global state within the library. Now any one of the following calls can be made. For this test, all but one is commented out:
-
+````
     pcl_writepcl("hello.pcl")           ! Dump as PCL text
 
     pcl_runpcl()                        ! Run PCL via interpreter
@@ -255,24 +258,23 @@ The demo was repeated in C; see `cdemo.c`. The matching interface file is `pcl.h
 
 Not all outputs work. For example, `pcl_exec()` doesn't work if compiled with gcc; that needs investigating (probably I'm writing memory that gcc puts into a read-only section).
 
-### The Other PCL Language
+The C API suffers a little because the language doesn't support default argument values.
 
-I have two languages called 'PCL'. The other one is the name of the bytecode for my dynamic language, which has been in use since the 1990s. Usually there's no confusion (except when I tried to merge the languages).
+### The PCL M Library
 
-Generating stack-based bytecode was so easy for scripting languages, that I wanted the same experience for my native code compiler:
+The library is written in my language as a collection of two dozen modules (for the Win64 version with all outputs bundled). It forms a 'sub-program' which can be included in any M project by writing 'import pcl'.
+
+Here the module scheme works effectively, provided I do want all 24 modules. Configuring a different arrangement involves using a different lead module with a different selection of modules. But currently the internal structure doesn't allow them to be split up so easily. So this is an interesting challenge of the module scheme.
+
+I think however it can cope. The expectation is that with two main targets for example, an M compiler for Windows will include:
 ````
-    pushf b           # dynamic bytecode; -f means local stackframe variable
-    pushf c
-    add               # can add ints, floats, stringsetc
-    popf a
-
-    load b    i64     # static IL
-    load c    i64
-    add       i64
-    store a
+import pcl_win64
 ````
-The static PCL uses `load/store` rather than `push/pop`, to avoid confusion with hardware `push/pop` operations. `load/store` usually map to register/memory `mov` ops on x64.    
-
+and one for Linux will have:
+````
+import pcl_lin64
+```
+in their lead modules. (Such modules usually only list the modules/libraries that comprise the project.)
 
 
 
