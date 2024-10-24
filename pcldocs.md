@@ -432,5 +432,15 @@ This has some compromises, especially executing code compiled from C:
 * (Other C compilers) Var-arg implementation code that relies on a downward growing stack will not work
 * Callback functions (external libraries being passed references to funtions in interpreted code) will not work for any language.
 
+### Missing PCL Instructions
+
+* Nothing has been done with 'vector' types, mainly because they don't feature in my source languages.
+* No overflow detection in generated code
+* No way to capture the overflow or carry flag for arithmetic ops (for example `cadd` could return two values: the normal result, and any carry).
+
+There are no special features for things like closures, generators, continuations (I don't know what half of them are). If they were to come up, and they couldn't be expressed in existing PCL code, then I would add something.
+
+There are however `setjmp longjump` ops for C, as well as `assem` for my inline assembly, and special `tcproc` functions for threaded-code (ie. naked functions).
+
 
 
