@@ -6,7 +6,7 @@ Here, the 'Host' is the front end compiler that writes PCL code, and the Source 
 
 ### The Execution Model
 
-* PCL uses only the primitive fixed width types listed below
+* PCL uses only the primitive fixed width static types listed below
 * It implements a stack virtual machine
 * The stack can notionally hold values of any type and size, including block types of arbitrary but fixed width
 
@@ -422,5 +422,15 @@ pcl_setflags(           Optional args, uses named args to set relevant flags
 
 * While there can be multiple steps to get to EXE, for example PCL -> MCL -> SS -> EXE, only one function needs to be called. It will ensure any previous steps have been done.
 * This was developed on Windows hence names like 'exe dll obj' in the function names. But if this ever works on Linux for example, then they will perform the equivalent task. The filename used will be whatever has been passed.
+
+### The PCL Interpreter
+
+This has some compromises, especially executing code compiled from C:
+
+* Most arithmetic, compare and logic operations are done at 64 bits, even if the instruction says different. This is to limit the number of possibilities, but it means some C code that would overflow 32 bits, may behave differently
+* (Using my C compiler) For C code implementing var-arg functions , separate preprocessing can't be used (as a different version of stdarg.h is needed for interpreted)
+* (Other C compilers) Var-arg implementation code that relies on a downward growing stack will not work
+* Callback functions (external libraries being passed references to funtions in interpreted code) will not work for any language.
+
 
 
