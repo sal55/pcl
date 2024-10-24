@@ -36,7 +36,7 @@ That is, passing structs by value which are a fixed size, and passing arrays by 
 
 But to give the illusion of pass-by-value, such blocks are first copied to a temporary location (or they will be when I get round to it).
 
-Functions can also return blocks, internally this is via extra argument with a reference to a location in the caller. This is taken care of the other size of PCL.
+Functions can also return blocks, internally this is via extra argument with a reference to a location in the caller. This is taken care of the other side of PCL.
 
 #### Multiple Return Values
 
