@@ -1,4 +1,4 @@
-!C API for PCL IL
+//C API for PCL IL
 
 enum {
     tpvoid=0,
@@ -210,6 +210,7 @@ typedef void* pcl;
 typedef void* psymbol;
 typedef long long int i64;
 typedef unsigned char u8;
+typedef double r64;
 typedef char* stringz;
 
 extern void     pcl_writepst(void* f);
