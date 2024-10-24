@@ -276,5 +276,65 @@ import pcl_lin64
 ````
 in their lead modules. (Such modules usually only list the modules/libraries that comprise the project.)
 
+### Example Session
+
+This example shows what might be involved in building `pcl.dll` and using it to run the demos. Everything needed is contained within this folder. There are no dependencies other that what is part of Windows (specifically, msvcrt.dll), and no other languages are involved.
+
+First, these files were copied into this folder:
+````
+c:\demo>dir
+    389,120 mm.exe              M Compiler (this is M7)
+    553,472 qq.exe              Q Interpreter
+    273,920 cc.exe              C Compiler (production version)
+    296,932 pcl.ma              PCL Library sources, as one amalgamated source file with 22 modules
+      1,293 qdemo.q             Two files for the Q demo
+      5,766 pcl.q
+      1,806 cdemo.c             Two files for the C demo
+      4,394 pcl.h
+````
+Now PCL.DLL needs to be created.
+
+````
+c:\demo>mm -dll pcl.ma
+Compiling pcl.ma to pcl.dll
+````
+The binary is 188KB fully-loaded, not space-optimised. (M6 would creat a 173KB version.)
+
+Now running those demos:
+````
+c:\demo>qq qdemo
+Hello, World!
+
+c:\demo>cc cdemo pcl.dll
+Compiling cdemo.c to cdemo.exe
+
+c:\demo>cdemo
+Hello, World!
+````
+I can use external tools as well, for example I ought to be able to use gcc or tcc to run the C too. But they don't like something about my interpreter loop (which uses a 0.6MB stack frame). If I change it to use the heap,  then those will work too:
+````
+c:\demo>gcc cdemo.c pcl.dll -o cdemo.exe
+c:\demo>cdemo
+Hello, World!
+````
+(The pcl.asm file includes that revised verson, created like this:
+````
+c:\bx>mm -nasm pcl
+Compiling pcl.m to pcl.asm
+c:\bx>copy pcl.asm \demo
+````
+I can test that here:
+c:\demo>nasm -fwin64 pcl.asm
+c:\demo>gcc cdemo.c pcl.obj -o cdemo.exe          # this version uses a statically linked library
+c:\demo>cdemo
+Hello, World!
+````
+The `pcl.ma` amalgamation was created like this then copied to the demo folder:
+````
+c:\bx>mm -ma pcl
+Writing pcl.ma
+````
+
+
 
 
