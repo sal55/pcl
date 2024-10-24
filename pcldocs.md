@@ -129,6 +129,17 @@ PCL only understands the primitive types shown below.
     ref             (Machine address (alias for u64 etc)
 ````
 
+Most PCL instructions have one type attribute. Some have two - mainly to do with type conversions. And some have none.
+
+Where there is an address involved in an instruction, but it is not the primary type, then it it is assumed to have a 'ref' type. Typically, `u64` for 64-bit targets. An example:
+````
+    load   p       u64
+    iload          u8
+````
+This loads a pointer `p`, then uses that to access a byte value. The implicit address type in that is `u64`. PCL has no control over that. If that is important, then it is the wrong choice of IL.
+
+
+
 ### Opcode List
 
 ````
