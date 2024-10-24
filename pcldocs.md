@@ -401,11 +401,11 @@ pcl_writeobj(F)         Write SS code as an OS-format object code file
 
 pcl_writedll(F)         Write SS code as an OS-format shared library file
 
-pcl_writeexe(F)         Write SS code as an OS-format binary executabl
+pcl_writeexe(F)         Write SS code as an OS-format binary executable
 
 pcl_writemx(F)          Convert SS to 'MCU' and write in my private MX binary format
 
-pcl_exec                Convert SS to 'MCU', fix that as as 'MCX', and execute it
+pcl_exec                Convert SS to 'MCU', fix that up as 'MCX', and execute it
 
 pcl_setflags(           Optional args, uses named args to set relevant flags
     highmem=-1,         Set to 1 for RIP address mode in low-mem, or 2 to enable
