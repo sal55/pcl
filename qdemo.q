@@ -26,26 +26,20 @@ proc main =
     pcl_end()
 
 ! Any of the following can be used for the next stage
- 
-!    pcl_setflags(verbose:1)
-    pcl_setflags()
 
 !   pcl_writepcl("hello.pcl")           ! Dump as PCL text
-!
+
     pcl_runpcl()                        ! Run PCL via interpreter
-!
+
 !   pcl_writeasm("hello.asm")           ! Generate ASM for my AA assemble
 !   pcl_writeasm("hello.asm", 'NASM')   ! Generate ASM for NASM
-!
+
 !   pcl_writeexe("hello.exe")           ! Write Windows PE executable
-!!
+
 !   pcl_setflags(highmem:2)             ! needed if to be linked via gcc or ld
 !   pcl_writeobj("hello.obj")           ! Write Windows COFF object file
-!!
+
 !   pcl_writemx("hello.mx")             ! Write my private executable format
-!
+
 !   pcl_exec(0)                         ! Run native code in-memory
-
-
-
 end
